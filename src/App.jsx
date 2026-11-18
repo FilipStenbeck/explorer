@@ -35,7 +35,7 @@ const CHARACTERS = [
     hitChance: 0.75,
     damageRange: [1, 10],
     moveRange: 5,
-    attackRange: 3,
+    attackRange: 8,
     sprite: '/sprites/wizard.png',
     walkSprite: '/sprites/wizard-walk.png',
     attackSprite: '/sprites/wizard-attack.png',
@@ -815,7 +815,12 @@ function App() {
                     <span className="attack-impact" aria-hidden="true">×</span>
                   )}
                   {!hasPlayer && !monster && tile === TILE.EXIT && !pathStep && (
-                    <span className="exit-marker" aria-hidden="true">◇</span>
+                    <span className="exit-stairs" aria-hidden="true">
+                      <span />
+                      <span />
+                      <span />
+                      <span />
+                    </span>
                   )}
                 </button>
               )

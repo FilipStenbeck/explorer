@@ -511,7 +511,9 @@ h1 {
   box-shadow: inset 0 0 0 1px rgb(233 223 189 / 8%);
 }
 
-.tile.tile--exit:hover { background: #454129; }
+.tile.tile--exit:hover {
+  background: radial-gradient(circle at 50% 38%, #0a0b08 0 24%, transparent 25%), #46422c;
+}
 
 .tile--selected {
   z-index: 1;
@@ -542,18 +544,41 @@ h1 {
 }
 
 .tile--exit {
-  background: #38351f;
+  background:
+    radial-gradient(circle at 50% 38%, #050605 0 24%, transparent 25%),
+    #363424;
   animation: exit-glow 1.6s ease-in-out infinite alternate;
 }
 
-.exit-marker {
+.exit-stairs {
   position: relative;
   z-index: 2;
-  font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
-  font-size: clamp(0.55rem, 1.8vw, 1.15rem);
-  font-weight: 800;
-  line-height: 1;
+  display: flex;
+  width: 82%;
+  height: 82%;
+  padding: 22% 5% 7%;
+  flex-direction: column;
+  align-items: center;
+  justify-content: flex-end;
+  gap: 5%;
+  background: linear-gradient(to bottom, rgb(0 0 0 / 68%), transparent 46%);
+  clip-path: polygon(18% 0, 82% 0, 100% 100%, 0 100%);
+  filter: drop-shadow(0 0.12rem 0.12rem rgb(0 0 0 / 75%));
+  pointer-events: auto;
 }
+
+.exit-stairs span {
+  display: block;
+  height: 14%;
+  border-top: clamp(1px, 0.15vw, 2px) solid #dfcf8a;
+  background: #625a39;
+  box-shadow: inset 0 -2px 0 #29281d;
+}
+
+.exit-stairs span:nth-child(1) { width: 42%; background: #383522; }
+.exit-stairs span:nth-child(2) { width: 60%; background: #4a452c; }
+.exit-stairs span:nth-child(3) { width: 78%; background: #585135; }
+.exit-stairs span:nth-child(4) { width: 96%; background: #686041; }
 
 .player-sprite {
   position: absolute;
@@ -733,11 +758,6 @@ h1 {
   animation: attack-impact 260ms steps(3, end) infinite;
 }
 
-.exit-marker {
-  color: #b3efe5;
-  text-shadow: 0 0 0.5rem #44d7c2;
-}
-
 .game-footer {
   margin-top: 1.25rem;
   align-items: center;
@@ -904,8 +924,8 @@ kbd {
 }
 
 @keyframes exit-glow {
-  from { box-shadow: inset 0 0 0.2rem rgb(68 215 194 / 18%); }
-  to { box-shadow: inset 0 0 0.8rem rgb(68 215 194 / 42%); }
+  from { box-shadow: inset 0 0 0.15rem rgb(213 194 126 / 12%); }
+  to { box-shadow: inset 0 0 0.65rem rgb(213 194 126 / 30%); }
 }
 
 @keyframes player-step {
