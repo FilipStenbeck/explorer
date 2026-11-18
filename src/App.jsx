@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
-import { getGridDistance, isTargetInRange } from './combat.js'
+import { getGridDistance, isTargetInRange, rollAttack } from './combat.js'
 import { generateDungeon, GRID_WIDTH, TILE } from './dungeon.js'
 import { advanceMonsters, spawnMonsters } from './monsters.js'
 import { findPath, getPathArrow } from './pathfinding.js'
@@ -7,6 +7,7 @@ import { findPath, getPathArrow } from './pathfinding.js'
 const STEP_DELAY = 150
 const MONSTER_STEP_DELAY = 110
 const ATTACK_FRAME_DELAY = 130
+const ENEMY_ATTACK_DELAY = 420
 
 const CHARACTERS = [
   {
@@ -14,7 +15,9 @@ const CHARACTERS = [
     name: 'Warrior',
     title: 'The Iron Vanguard',
     description: 'Shield raised, sword ready. Built to face the dark head-on.',
-    health: 6,
+    health: 10,
+    hitChance: 0.8,
+    damageRange: [3, 9],
     moveRange: 7,
     attackRange: 1,
     sprite: '/sprites/warrior.png',
@@ -26,7 +29,9 @@ const CHARACTERS = [
     name: 'Wizard',
     title: 'The Arcane Seeker',
     description: 'Ancient words and a bright staff illuminate forgotten paths.',
-    health: 3,
+    health: 4,
+    hitChance: 0.75,
+    damageRange: [1, 10],
     moveRange: 5,
     attackRange: 3,
     sprite: '/sprites/wizard.png',
@@ -38,7 +43,9 @@ const CHARACTERS = [
     name: 'Ranger',
     title: 'The Silent Pathfinder',
     description: 'Keen eyes and a steady bow find a way through any ruin.',
-    health: 4,
+    health: 6,
+    hitChance: 0.75,
+    damageRange: [4, 6],
     moveRange: 10,
     attackRange: 5,
     sprite: '/sprites/ranger.png',
@@ -56,15 +63,31 @@ const isSamePosition = (first, second) =>
 function HealthHearts({ health, name }) {
   return (
     <div className="health-hearts" aria-label={`${name} health: ${health}`}>
-      {Array.from({ length: health }, (_, index) => (
-        <span key={index} aria-hidden="true">♥</span>
-      ))}
+      {health > 0 ? (
+        Array.from({ length: health }, (_, index) => (
+          <span key={index} aria-hidden="true">♥</span>
+        ))
+      ) : (
+        <span className="health-hearts__empty" aria-hidden="true">0</span>
+      )}
     </div>
+  )
+}
+
+function Tombstone({ portrait = false }) {
+  return (
+    <span
+      className={`tombstone${portrait ? ' tombstone--portrait' : ''}`}
+      aria-hidden="true"
+    >
+      <span>RIP</span>
+    </span>
   )
 }
 
 function StatsBlock({ entity, side }) {
   const isHero = side === 'hero'
+  const currentHealth = entity?.currentHealth ?? entity?.health
 
   return (
     <aside
@@ -76,7 +99,9 @@ function StatsBlock({ entity, side }) {
       {entity ? (
         <>
           <div className={`stats-portrait stats-portrait--${side}`} aria-hidden="true">
-            {isHero ? (
+            {entity.isDead ? (
+              <Tombstone portrait />
+            ) : isHero ? (
               <img src={entity.sprite} alt="" />
             ) : (
               <span
@@ -88,11 +113,23 @@ function StatsBlock({ entity, side }) {
           <h2>{entity.name}</h2>
           <div className="stats-field">
             <span>Health</span>
-            <HealthHearts health={entity.health} name={entity.name} />
+            <HealthHearts health={currentHealth} name={entity.name} />
           </div>
-          <div className="stats-field stats-field--movement">
+          <div className="stats-field stats-field--number">
             <span>Movement speed</span>
             <strong>{entity.moveRange ?? entity.speed}</strong>
+          </div>
+          <div className="stats-field stats-field--number">
+            <span>Attack range</span>
+            <strong>{entity.attackRange ?? entity.range}</strong>
+          </div>
+          <div className="stats-field stats-field--number">
+            <span>Chance to hit</span>
+            <strong>{Math.round(entity.hitChance * 100)}%</strong>
+          </div>
+          <div className="stats-field stats-field--number">
+            <span>Base damage</span>
+            <strong>{entity.damageRange[0]}–{entity.damageRange[1]}</strong>
           </div>
         </>
       ) : (
@@ -108,6 +145,8 @@ function StatsBlock({ entity, side }) {
 function App() {
   const [isPlaying, setIsPlaying] = useState(false)
   const [character, setCharacter] = useState(null)
+  const [heroHealth, setHeroHealth] = useState(0)
+  const [gameOver, setGameOver] = useState(false)
   const [depth, setDepth] = useState(1)
   const [turn, setTurn] = useState(1)
   const [dungeon, setDungeon] = useState(() => generateDungeon())
@@ -120,9 +159,12 @@ function App() {
   const [isMoving, setIsMoving] = useState(false)
   const [monsters, setMonsters] = useState([])
   const [isEnemyMoving, setIsEnemyMoving] = useState(false)
+  const [isEnemyAttacking, setIsEnemyAttacking] = useState(false)
   const [isAttacking, setIsAttacking] = useState(false)
   const [attackFrame, setAttackFrame] = useState(0)
   const [attackTargetId, setAttackTargetId] = useState(null)
+  const [monsterAttackId, setMonsterAttackId] = useState(null)
+  const [isHeroHit, setIsHeroHit] = useState(false)
   const [combatMessage, setCombatMessage] = useState(null)
   const [attacksRemaining, setAttacksRemaining] = useState(1)
   const [selectedMonsterId, setSelectedMonsterId] = useState(null)
@@ -141,12 +183,16 @@ function App() {
     setIsMoving(false)
     setMonsters(spawnMonsters(nextDungeon, nextDepth))
     setIsEnemyMoving(false)
+    setIsEnemyAttacking(false)
     setIsAttacking(false)
     setAttackFrame(0)
     setAttackTargetId(null)
+    setMonsterAttackId(null)
+    setIsHeroHit(false)
     setCombatMessage(null)
     setAttacksRemaining(1)
     setSelectedMonsterId(null)
+    setGameOver(false)
     attackLock.current = false
     enemyTurnLock.current = false
     setTurn(1)
@@ -156,14 +202,17 @@ function App() {
 
   const chooseCharacter = (nextCharacter) => {
     setCharacter(nextCharacter)
+    setHeroHealth(nextCharacter.health)
     enterDungeon(1, nextCharacter.moveRange)
   }
 
   const beginNewTurn = useCallback(async () => {
     if (
       !character ||
+      gameOver ||
       isMoving ||
       isEnemyMoving ||
+      isEnemyAttacking ||
       isAttacking ||
       enemyTurnLock.current ||
       attackLock.current
@@ -173,7 +222,10 @@ function App() {
     setCombatMessage(null)
     setIsEnemyMoving(true)
     let nextMonsters = monsters
-    const fastestMonster = Math.max(0, ...monsters.map(({ speed }) => speed))
+    const fastestMonster = Math.max(
+      0,
+      ...monsters.filter(({ isDead }) => !isDead).map(({ speed }) => speed),
+    )
 
     for (let step = 0; step < fastestMonster; step += 1) {
       const advancedMonsters = advanceMonsters(
@@ -194,6 +246,62 @@ function App() {
       setMonsters(nextMonsters)
     }
 
+    setIsEnemyMoving(false)
+    setIsEnemyAttacking(true)
+    let remainingHeroHealth = heroHealth
+    const attackMessages = []
+
+    for (const monster of nextMonsters) {
+      if (
+        monster.isDead ||
+        !isTargetInRange(monster.position, player, monster.range)
+      ) {
+        continue
+      }
+
+      setMonsterAttackId(monster.instanceId)
+      setCombatMessage(`${monster.name} attacks ${character.name}…`)
+      await wait(ATTACK_FRAME_DELAY * 2)
+
+      const attack = rollAttack(monster)
+
+      if (attack.hit) {
+        remainingHeroHealth = Math.max(0, remainingHeroHealth - attack.damage)
+        setHeroHealth(remainingHeroHealth)
+        setIsHeroHit(true)
+        attackMessages.push(
+          `${monster.name} hits ${character.name} for ${attack.damage} damage.`,
+        )
+      } else {
+        attackMessages.push(`${monster.name} misses ${character.name}.`)
+      }
+
+      setCombatMessage(attackMessages.join(' '))
+      await wait(ENEMY_ATTACK_DELAY)
+      setIsHeroHit(false)
+
+      if (remainingHeroHealth === 0) {
+        break
+      }
+    }
+
+    setMonsterAttackId(null)
+    setIsHeroHit(false)
+    setIsEnemyAttacking(false)
+
+    if (remainingHeroHealth === 0) {
+      setGameOver(true)
+      setMovesRemaining(0)
+      setAttacksRemaining(0)
+      setSelectedTarget(null)
+      setPlannedPath([])
+      setCombatMessage(
+        `${attackMessages.join(' ')} ${character.name} has fallen.`,
+      )
+      enemyTurnLock.current = false
+      return
+    }
+
     const occupiedPositions = nextMonsters.map(({ position }) => position)
     const targetIsOccupied = occupiedPositions.some((position) =>
       isSamePosition(position, selectedTarget),
@@ -212,11 +320,13 @@ function App() {
       setPlannedPath([])
     }
 
-    setIsEnemyMoving(false)
     enemyTurnLock.current = false
   }, [
     character,
     dungeon.tiles,
+    gameOver,
+    heroHealth,
+    isEnemyAttacking,
     isEnemyMoving,
     isAttacking,
     isMoving,
@@ -247,8 +357,10 @@ function App() {
 
   const walkPlannedPath = useCallback(async () => {
     if (
+      gameOver ||
       isMoving ||
       isEnemyMoving ||
+      isEnemyAttacking ||
       isAttacking ||
       movesRemaining === 0 ||
       plannedPath.length === 0
@@ -289,6 +401,8 @@ function App() {
     depth,
     dungeon.tiles,
     enterDungeon,
+    gameOver,
+    isEnemyAttacking,
     isEnemyMoving,
     isAttacking,
     isMoving,
@@ -301,11 +415,18 @@ function App() {
   const performAttack = useCallback(async (monster) => {
     if (
       !character ||
+      gameOver ||
       isMoving ||
       isEnemyMoving ||
+      isEnemyAttacking ||
       isAttacking ||
       attackLock.current
     ) return
+
+    if (monster.isDead) {
+      setCombatMessage(`${monster.name} has already fallen.`)
+      return
+    }
 
     const distance = getGridDistance(player, monster.position)
 
@@ -328,6 +449,7 @@ function App() {
     setSelectedTarget(null)
     setPlannedPath([])
     setCombatMessage(`${character.name} attacks ${monster.name}…`)
+    const attack = rollAttack(character)
 
     if (monster.position.x !== player.x) {
       setFacing(monster.position.x < player.x ? 'left' : 'right')
@@ -340,16 +462,36 @@ function App() {
     setAttackFrame(2)
     await wait(ATTACK_FRAME_DELAY * 1.4)
 
+    if (attack.hit) {
+      const nextHealth = Math.max(
+        0,
+        (monster.currentHealth ?? monster.health) - attack.damage,
+      )
+      const wasKilled = nextHealth === 0
+
+      setMonsters((currentMonsters) =>
+        currentMonsters.map((currentMonster) =>
+          currentMonster.instanceId === monster.instanceId
+            ? { ...currentMonster, currentHealth: nextHealth, isDead: wasKilled }
+            : currentMonster,
+        ),
+      )
+      setCombatMessage(
+        `${character.name} hits ${monster.name} for ${attack.damage} damage.${wasKilled ? ` ${monster.name} is slain.` : ''}`,
+      )
+    } else {
+      setCombatMessage(`${character.name} misses ${monster.name}.`)
+    }
+
     setIsAttacking(false)
     setAttackTargetId(null)
-    setCombatMessage(
-      `${character.name} attacked ${monster.name}. Damage is not enabled yet.`,
-    )
     attackLock.current = false
   }, [
     attacksRemaining,
     character,
+    gameOver,
     isAttacking,
+    isEnemyAttacking,
     isEnemyMoving,
     isMoving,
     player,
@@ -357,8 +499,10 @@ function App() {
 
   const handleTileClick = (position, tile, monster) => {
     if (
+      gameOver ||
       isMoving ||
       isEnemyMoving ||
+      isEnemyAttacking ||
       isAttacking ||
       tile === TILE.WALL ||
       isSamePosition(position, player)
@@ -369,6 +513,12 @@ function App() {
     if (monster) {
       setSelectedTarget(null)
       setPlannedPath([])
+
+      if (monster.isDead) {
+        setSelectedMonsterId(monster.instanceId)
+        setCombatMessage(`${monster.name} lies defeated.`)
+        return
+      }
 
       if (selectedMonsterId !== monster.instanceId) {
         const distance = getGridDistance(player, monster.position)
@@ -434,6 +584,20 @@ function App() {
     [monsters, selectedMonsterId],
   )
 
+  const aliveMonsterCount = useMemo(
+    () => monsters.filter(({ isDead }) => !isDead).length,
+    [monsters],
+  )
+  const heroStats = character
+    ? { ...character, currentHealth: heroHealth, isDead: gameOver }
+    : null
+
+  const returnToCharacterSelect = () => {
+    setIsPlaying(false)
+    setCharacter(null)
+    setCombatMessage(null)
+  }
+
   if (!isPlaying) {
     return (
       <main className="game-shell">
@@ -491,7 +655,7 @@ function App() {
           <span className={`attack-stat attack-stat--${attacksRemaining ? 'ready' : 'used'}`}>
             Attack {attacksRemaining ? 'Ready' : 'Used'}
           </span>
-          <span className="monster-count">Monsters {monsters.length}</span>
+          <span className="monster-count">Monsters {aliveMonsterCount}</span>
         </div>
       </header>
 
@@ -500,9 +664,9 @@ function App() {
 
         <section className="dungeon-panel" aria-label={`Dungeon depth ${depth}`}>
           <div
-            className={`dungeon-grid${isMoving || isEnemyMoving || isAttacking ? ' dungeon-grid--moving' : ''}`}
+            className={`dungeon-grid${isMoving || isEnemyMoving || isEnemyAttacking || isAttacking ? ' dungeon-grid--moving' : ''}`}
             style={{ '--grid-width': GRID_WIDTH }}
-            aria-label={`A dungeon with ${dungeon.rooms.length} connected rooms, ${dungeon.exits.length} exits, and ${monsters.length} monsters. The player is at column ${player.x + 1}, row ${player.y + 1}.`}
+            aria-label={`A dungeon with ${dungeon.rooms.length} connected rooms, ${dungeon.exits.length} exits, and ${aliveMonsterCount} living monsters. The player is at column ${player.x + 1}, row ${player.y + 1}.`}
           >
           {dungeon.tiles.flatMap((row, y) =>
             row.map((tile, x) => {
@@ -515,25 +679,26 @@ function App() {
               const monsterDistance = monster
                 ? getGridDistance(player, monster.position)
                 : null
-              const monsterInRange = monster
+              const monsterInRange = monster && !monster.isDead
                 ? isTargetInRange(player, monster.position, character.attackRange)
                 : false
-              const canAttackMonster = monsterInRange && attacksRemaining > 0
+              const canAttackMonster = monsterInRange && attacksRemaining > 0 && !gameOver
               const isAttackTarget = monster?.instanceId === attackTargetId
+              const isMonsterAttacking = monster?.instanceId === monsterAttackId
               const isSelectedMonster = monster?.instanceId === selectedMonsterId
 
               return (
                 <button
-                  className={`tile tile--${tile}${hasPlayer ? ' tile--player' : ''}${monster ? ` tile--monster tile--monster-${canAttackMonster ? 'in-range' : monsterInRange ? 'attack-spent' : 'out-of-range'}` : ''}${isSelectedMonster ? ' tile--monster-selected' : ''}${isAttackTarget ? ' tile--attack-target' : ''}${isSelected ? ' tile--selected' : ''}`}
+                  className={`tile tile--${tile}${hasPlayer ? ' tile--player' : ''}${monster ? ` tile--monster${monster.isDead ? ' tile--monster-dead' : ` tile--monster-${canAttackMonster ? 'in-range' : monsterInRange ? 'attack-spent' : 'out-of-range'}`}` : ''}${isSelectedMonster ? ' tile--monster-selected' : ''}${isAttackTarget ? ' tile--attack-target' : ''}${isMonsterAttacking ? ' tile--monster-attacking' : ''}${isHeroHit && hasPlayer ? ' tile--hero-hit' : ''}${isSelected ? ' tile--selected' : ''}`}
                   key={`${x}-${y}`}
                   type="button"
-                  disabled={isWall || isMoving || isEnemyMoving || isAttacking}
+                  disabled={isWall || gameOver || isMoving || isEnemyMoving || isEnemyAttacking || isAttacking}
                   onClick={() => handleTileClick(position, tile, monster)}
                   aria-label={
                     isWall
                       ? undefined
                       : monster
-                        ? `${monster.name}, speed ${monster.speed}, range ${monster.range}, health ${monster.health}, attack ${monster.attack}, ${isSelectedMonster ? 'selected, click again to attack, ' : 'click to inspect, '}${monsterInRange ? attacksRemaining > 0 ? 'in attack range' : 'in range but attack already used this turn' : `out of attack range at ${monsterDistance} spaces`}, at column ${x + 1}, row ${y + 1}`
+                        ? `${monster.name}, speed ${monster.speed}, range ${monster.range}, health ${monster.currentHealth} of ${monster.health}, ${monster.isDead ? 'defeated' : `${Math.round(monster.hitChance * 100)} percent chance to hit, damage ${monster.damageRange[0]} to ${monster.damageRange[1]}, ${isSelectedMonster ? 'selected, click again to attack, ' : 'click to inspect, '}${monsterInRange ? attacksRemaining > 0 ? 'in attack range' : 'in range but attack already used this turn' : `out of attack range at ${monsterDistance} spaces`}`}, at column ${x + 1}, row ${y + 1}`
                         : `${tile === TILE.EXIT ? 'Exit' : 'Floor'} at column ${x + 1}, row ${y + 1}${isSelected ? ', selected destination' : ''}`
                   }
                   aria-hidden={isWall ? 'true' : undefined}
@@ -546,27 +711,31 @@ function App() {
                       {pathStep.arrow}
                     </span>
                   )}
-                  {hasPlayer && (
+                  {hasPlayer && (gameOver ? (
+                    <Tombstone />
+                  ) : (
                     <span
                       className={
                         isAttacking
                           ? `player-sprite player-sprite--attacking player-attack--frame-${attackFrame} player-sprite--${facing}`
-                          : `player-sprite player-sprite--frame-${stepFrame} player-sprite--${facing}`
+                          : `player-sprite player-sprite--frame-${stepFrame} player-sprite--${facing}${isHeroHit ? ' player-sprite--hit' : ''}`
                       }
                       style={{
                         backgroundImage: `url(${isAttacking ? character.attackSprite : character.walkSprite})`,
                       }}
                       aria-hidden="true"
                     />
-                  )}
-                  {monster && !hasPlayer && (
+                  ))}
+                  {monster && !hasPlayer && (monster.isDead ? (
+                    <Tombstone />
+                  ) : (
                     <span
-                      className={`monster-sprite monster-sprite--${monster.id} monster-sprite--frame-${monster.frame} monster-sprite--${monster.facing}`}
+                      className={`monster-sprite monster-sprite--${monster.id} monster-sprite--frame-${monster.frame} monster-sprite--${monster.facing}${isMonsterAttacking ? ' monster-sprite--attacking' : ''}`}
                       style={{ backgroundImage: `url(${monster.walkSprite})` }}
                       aria-hidden="true"
                     />
-                  )}
-                  {isAttackTarget && (
+                  ))}
+                  {(isAttackTarget || (hasPlayer && isHeroHit)) && (
                     <span className="attack-impact" aria-hidden="true">×</span>
                   )}
                   {!hasPlayer && !monster && tile === TILE.EXIT && !pathStep && (
@@ -577,9 +746,18 @@ function App() {
             }),
           )}
           </div>
+          {gameOver && (
+            <section className="game-over" role="alert" aria-labelledby="game-over-title">
+              <p>The dungeon claims another explorer</p>
+              <h2 id="game-over-title">Game Over</h2>
+              <button type="button" onClick={returnToCharacterSelect}>
+                Choose another hero
+              </button>
+            </section>
+          )}
         </section>
 
-        <StatsBlock entity={character} side="hero" />
+        <StatsBlock entity={heroStats} side="hero" />
       </section>
 
       <footer className="game-footer">
@@ -593,6 +771,8 @@ function App() {
           <p>
             {isEnemyMoving
               ? 'The monsters are advancing…'
+              : isEnemyAttacking
+                ? combatMessage
               : isAttacking
                 ? combatMessage
               : isMoving
@@ -604,7 +784,7 @@ function App() {
           className="secondary-button turn-button"
           type="button"
           onClick={beginNewTurn}
-          disabled={isMoving || isEnemyMoving || isAttacking}
+          disabled={gameOver || isMoving || isEnemyMoving || isEnemyAttacking || isAttacking}
         >
           New turn <kbd>Enter</kbd>
         </button>

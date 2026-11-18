@@ -8,7 +8,8 @@ export const MONSTER_TYPES = [
     speed: 12,
     range: 1,
     health: 1,
-    attack: 1,
+    hitChance: 0.55,
+    damageRange: [1, 2],
     walkSprite: '/sprites/bat-walk.png',
   },
   {
@@ -16,8 +17,9 @@ export const MONSTER_TYPES = [
     name: 'Skeleton',
     speed: 6,
     range: 1,
-    health: 2,
-    attack: 3,
+    health: 4,
+    hitChance: 0.65,
+    damageRange: [1, 4],
     walkSprite: '/sprites/skeleton-walk.png',
   },
   {
@@ -25,8 +27,9 @@ export const MONSTER_TYPES = [
     name: 'Zombie',
     speed: 4,
     range: 1,
-    health: 3,
-    attack: 4,
+    health: 5,
+    hitChance: 0.5,
+    damageRange: [1, 5],
     walkSprite: '/sprites/zombie-walk.png',
   },
   {
@@ -34,8 +37,9 @@ export const MONSTER_TYPES = [
     name: 'Orc',
     speed: 7,
     range: 1,
-    health: 4,
-    attack: 6,
+    health: 10,
+    hitChance: 0.65,
+    damageRange: [3, 6],
     walkSprite: '/sprites/orc-walk.png',
   },
   {
@@ -43,8 +47,9 @@ export const MONSTER_TYPES = [
     name: 'Cultist',
     speed: 8,
     range: 1,
-    health: 2,
-    attack: 5,
+    health: 4,
+    hitChance: 0.65,
+    damageRange: [1, 3],
     walkSprite: '/sprites/cultist-walk.png',
   },
 ]
@@ -102,6 +107,8 @@ export function spawnMonsters(dungeon, depth, random = Math.random) {
       ...type,
       instanceId: `${depth}-${index}-${type.id}`,
       position,
+      currentHealth: type.health,
+      isDead: false,
       frame: 0,
       facing: 'left',
     }
@@ -112,7 +119,7 @@ export function advanceMonsters(tiles, monsters, player, stepNumber) {
   const occupied = new Set(monsters.map(({ position }) => positionKey(position)))
 
   return monsters.map((monster) => {
-    if (stepNumber >= monster.speed) return monster
+    if (monster.isDead || stepNumber >= monster.speed) return monster
 
     occupied.delete(positionKey(monster.position))
     const blockers = [...occupied].map((key) => {

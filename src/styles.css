@@ -387,12 +387,17 @@ h1 {
   text-shadow: 1px 1px 0 #551f1b;
 }
 
-.stats-field--movement {
+.health-hearts .health-hearts__empty {
+  color: #746e5b;
+  text-shadow: none;
+}
+
+.stats-field--number {
   grid-template-columns: 1fr auto;
   align-items: center;
 }
 
-.stats-field--movement strong {
+.stats-field--number strong {
   color: #efe0a6;
   font-size: 1.15rem;
 }
@@ -425,6 +430,7 @@ h1 {
 }
 
 .dungeon-panel {
+  position: relative;
   padding: clamp(0.5rem, 1.8vw, 1rem);
   border: 1px solid #5e5533;
   background: #070806;
@@ -591,6 +597,21 @@ h1 {
 .monster-sprite--frame-1 { background-position: right center; }
 .monster-sprite--left { scale: -1 1; }
 
+.monster-sprite--attacking {
+  z-index: 5;
+  animation: monster-attack 170ms steps(2, end) infinite alternate;
+}
+
+.player-sprite--hit {
+  filter:
+    brightness(1.8)
+    sepia(1)
+    saturate(5)
+    hue-rotate(320deg)
+    drop-shadow(0 0 0.35rem rgb(255 80 52 / 85%));
+  animation: hero-hit 120ms steps(2, end) infinite alternate;
+}
+
 .tile--monster {
   background: radial-gradient(circle, rgb(144 35 39 / 18%), transparent 72%), #292a20;
 }
@@ -600,6 +621,12 @@ h1 {
   outline: 2px solid #f0c763;
   outline-offset: -2px;
 }
+
+.tile--monster-dead {
+  background: radial-gradient(circle, rgb(116 111 91 / 18%), transparent 72%), #25261e;
+}
+
+.tile--monster-dead:not(:disabled) { cursor: pointer; }
 
 .tile--monster-in-range:not(:disabled) {
   cursor: url('/cursors/crossed-swords.svg') 16 16, crosshair;
@@ -630,6 +657,62 @@ h1 {
   animation: attack-target-pulse 130ms steps(2, end) infinite alternate;
 }
 
+.tile--monster-attacking,
+.tile--hero-hit {
+  z-index: 4;
+  box-shadow: inset 0 0 0.8rem rgb(218 64 43 / 55%);
+}
+
+.tombstone {
+  position: absolute;
+  z-index: 5;
+  display: grid;
+  width: 74%;
+  height: 88%;
+  place-items: center;
+  color: #1a1b17;
+  border: 2px solid #87877a;
+  border-bottom-width: 4px;
+  border-radius: 48% 48% 8% 8%;
+  background:
+    repeating-linear-gradient(0deg, transparent 0 5px, rgb(0 0 0 / 7%) 6px),
+    #67695f;
+  box-shadow:
+    inset 2px 2px 0 rgb(255 255 255 / 12%),
+    0 0.25rem 0 #2c2e29,
+    0 0.35rem 0.45rem rgb(0 0 0 / 55%);
+  font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+  font-size: clamp(0.32rem, 0.9vw, 0.55rem);
+  font-weight: 900;
+  image-rendering: pixelated;
+  pointer-events: none;
+  animation: tombstone-appear 180ms steps(3, end);
+}
+
+.tombstone::after {
+  position: absolute;
+  right: -12%;
+  bottom: -10%;
+  left: -12%;
+  height: 18%;
+  border: 2px solid #6f7067;
+  background: #4b4e47;
+  box-shadow: 0 0.2rem 0 #272923;
+  content: '';
+}
+
+.tombstone > span {
+  padding-top: 18%;
+  letter-spacing: 0.06em;
+}
+
+.tombstone--portrait {
+  position: relative;
+  width: 52%;
+  height: 68%;
+  font-size: 0.7rem;
+}
+
 .attack-impact {
   position: absolute;
   z-index: 5;
@@ -655,6 +738,40 @@ h1 {
 .game-footer {
   margin-top: 1.25rem;
   align-items: center;
+}
+
+.game-over {
+  position: absolute;
+  z-index: 8;
+  top: 50%;
+  left: 50%;
+  width: min(24rem, calc(100% - 2rem));
+  padding: clamp(1.25rem, 4vw, 2.25rem);
+  translate: -50% -50%;
+  border: 1px solid #8a3d32;
+  outline: 1px solid rgb(234 205 146 / 16%);
+  outline-offset: -0.45rem;
+  background: rgb(16 12 10 / 94%);
+  box-shadow: 0 1.5rem 4rem rgb(0 0 0 / 78%);
+  text-align: center;
+}
+
+.game-over p {
+  margin: 0 0 0.5rem;
+  color: #a79271;
+  font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+  font-size: 0.62rem;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+}
+
+.game-over h2 {
+  margin: 0 0 1.5rem;
+  color: #d75848;
+  font-size: clamp(2.4rem, 7vw, 4.5rem);
+  font-weight: 500;
+  letter-spacing: -0.04em;
+  line-height: 0.95;
 }
 
 .game-footer p {
@@ -770,6 +887,21 @@ kbd {
 @keyframes monster-step {
   0% { translate: 0 10%; }
   100% { translate: 0 0; }
+}
+
+@keyframes monster-attack {
+  from { translate: 0 0; }
+  to { translate: 12% 0; }
+}
+
+@keyframes hero-hit {
+  from { translate: -5% 0; }
+  to { translate: 5% 0; }
+}
+
+@keyframes tombstone-appear {
+  from { translate: 0 -20%; opacity: 0; }
+  to { translate: 0 0; opacity: 1; }
 }
 
 @media (max-width: 1050px) {
