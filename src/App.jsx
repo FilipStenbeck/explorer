@@ -1,5 +1,10 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
-import { getGridDistance, isTargetInRange, rollAttack } from './combat.js'
+import {
+  getGridDistance,
+  hasLineOfSight,
+  isTargetInRange,
+  rollAttack,
+} from './combat.js'
 import { generateDungeon, GRID_WIDTH, TILE } from './dungeon.js'
 import { advanceMonsters, spawnMonsters } from './monsters.js'
 import { findPath, getPathArrow } from './pathfinding.js'
@@ -294,7 +299,8 @@ function App() {
     for (const monster of nextMonsters) {
       if (
         monster.isDead ||
-        !isTargetInRange(monster.position, player, monster.range)
+        !isTargetInRange(monster.position, player, monster.range) ||
+        !hasLineOfSight(dungeon.tiles, monster.position, player)
       ) {
         continue
       }
@@ -484,6 +490,11 @@ function App() {
       return
     }
 
+    if (!hasLineOfSight(dungeon.tiles, player, monster.position)) {
+      setCombatMessage(`${monster.name} is behind a wall. No clear line of sight.`)
+      return
+    }
+
     attackLock.current = true
     setIsAttacking(true)
     setAttackTargetId(monster.instanceId)
@@ -559,6 +570,7 @@ function App() {
     isEnemyAttacking,
     isEnemyMoving,
     isMoving,
+    dungeon.tiles,
     heroExperience,
     player,
     showAttackResult,
@@ -589,11 +601,23 @@ function App() {
 
       if (selectedMonsterId !== monster.instanceId) {
         const distance = getGridDistance(player, monster.position)
+        const isWithinRange = isTargetInRange(
+          player,
+          monster.position,
+          character.attackRange,
+        )
+        const hasClearShot = hasLineOfSight(
+          dungeon.tiles,
+          player,
+          monster.position,
+        )
         setSelectedMonsterId(monster.instanceId)
         setCombatMessage(
-          isTargetInRange(player, monster.position, character.attackRange)
-            ? `${monster.name} selected. Click it again to attack.`
-            : `${monster.name} selected at ${distance} spaces. Move within range ${character.attackRange} to attack.`,
+          !isWithinRange
+            ? `${monster.name} selected at ${distance} spaces. Move within range ${character.attackRange} to attack.`
+            : hasClearShot
+              ? `${monster.name} selected. Click it again to attack.`
+              : `${monster.name} selected, but a wall blocks line of sight.`,
         )
         return
       }
@@ -755,9 +779,13 @@ function App() {
               const monsterDistance = monster
                 ? getGridDistance(player, monster.position)
                 : null
-              const monsterInRange = monster && !monster.isDead
+              const monsterWithinRange = monster && !monster.isDead
                 ? isTargetInRange(player, monster.position, character.attackRange)
                 : false
+              const monsterHasLineOfSight = monster && !monster.isDead
+                ? hasLineOfSight(dungeon.tiles, player, monster.position)
+                : false
+              const monsterInRange = monsterWithinRange && monsterHasLineOfSight
               const canAttackMonster = monsterInRange && attacksRemaining > 0 && !gameOver
               const isAttackTarget = monster?.instanceId === attackTargetId
               const isMonsterAttacking = monster?.instanceId === monsterAttackId
@@ -774,7 +802,7 @@ function App() {
                     isWall
                       ? undefined
                       : monster
-                        ? `${monster.name}, speed ${monster.speed}, range ${monster.range}, health ${monster.currentHealth} of ${monster.health}, ${monster.isDead ? 'defeated' : `${Math.round(monster.hitChance * 100)} percent chance to hit, damage ${monster.damageRange[0]} to ${monster.damageRange[1]}, ${isSelectedMonster ? 'selected, click again to attack, ' : 'click to inspect, '}${monsterInRange ? attacksRemaining > 0 ? 'in attack range' : 'in range but attack already used this turn' : `out of attack range at ${monsterDistance} spaces`}`}, at column ${x + 1}, row ${y + 1}`
+                        ? `${monster.name}, speed ${monster.speed}, range ${monster.range}, health ${monster.currentHealth} of ${monster.health}, ${monster.isDead ? 'defeated' : `${Math.round(monster.hitChance * 100)} percent chance to hit, damage ${monster.damageRange[0]} to ${monster.damageRange[1]}, ${isSelectedMonster ? 'selected, click again to attack, ' : 'click to inspect, '}${!monsterWithinRange ? `out of attack range at ${monsterDistance} spaces` : !monsterHasLineOfSight ? 'within range but blocked by a wall' : attacksRemaining > 0 ? 'in attack range' : 'in range but attack already used this turn'}`}, at column ${x + 1}, row ${y + 1}`
                         : `${tile === TILE.EXIT ? 'Exit' : 'Floor'} at column ${x + 1}, row ${y + 1}${isSelected ? ', selected destination' : ''}`
                   }
                   aria-hidden={isWall ? 'true' : undefined}
