@@ -8,6 +8,7 @@ export const MONSTER_TYPES = [
     speed: 12,
     range: 1,
     health: 1,
+    experienceReward: 1,
     hitChance: 0.55,
     damageRange: [1, 2],
     walkSprite: '/sprites/bat-walk.png',
@@ -18,6 +19,7 @@ export const MONSTER_TYPES = [
     speed: 6,
     range: 1,
     health: 4,
+    experienceReward: 2,
     hitChance: 0.65,
     damageRange: [1, 4],
     walkSprite: '/sprites/skeleton-walk.png',
@@ -28,6 +30,7 @@ export const MONSTER_TYPES = [
     speed: 4,
     range: 1,
     health: 5,
+    experienceReward: 3,
     hitChance: 0.5,
     damageRange: [1, 5],
     walkSprite: '/sprites/zombie-walk.png',
@@ -38,6 +41,7 @@ export const MONSTER_TYPES = [
     speed: 7,
     range: 1,
     health: 10,
+    experienceReward: 4,
     hitChance: 0.65,
     damageRange: [3, 6],
     walkSprite: '/sprites/orc-walk.png',
@@ -48,6 +52,7 @@ export const MONSTER_TYPES = [
     speed: 8,
     range: 1,
     health: 4,
+    experienceReward: 2,
     hitChance: 0.65,
     damageRange: [1, 3],
     walkSprite: '/sprites/cultist-walk.png',
@@ -60,13 +65,15 @@ const samePosition = (first, second) =>
 
 export function getMonsterCount(depth, random = Math.random) {
   const progression = Math.min(Math.max((depth - 1) / 12, 0), 1)
-  const oneMonsterChance = 0.72 - progression * 0.52
-  const twoMonsterChance = 0.24 + progression * 0.11
+  const twoMonsterChance = 0.62 - progression * 0.47
+  const threeMonsterChance = 0.27 - progression * 0.02
+  const fourMonsterChance = 0.09 + progression * 0.21
   const roll = random()
 
-  if (roll < oneMonsterChance) return 1
-  if (roll < oneMonsterChance + twoMonsterChance) return 2
-  return 3
+  if (roll < twoMonsterChance) return 2
+  if (roll < twoMonsterChance + threeMonsterChance) return 3
+  if (roll < twoMonsterChance + threeMonsterChance + fourMonsterChance) return 4
+  return 5
 }
 
 const shuffle = (items, random) => {

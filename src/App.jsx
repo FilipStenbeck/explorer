@@ -3,11 +3,13 @@ import { getGridDistance, isTargetInRange, rollAttack } from './combat.js'
 import { generateDungeon, GRID_WIDTH, TILE } from './dungeon.js'
 import { advanceMonsters, spawnMonsters } from './monsters.js'
 import { findPath, getPathArrow } from './pathfinding.js'
+import { experienceForLevel, getLevelForExperience } from './progression.js'
 
 const STEP_DELAY = 150
 const MONSTER_STEP_DELAY = 110
 const ATTACK_FRAME_DELAY = 130
-const ENEMY_ATTACK_DELAY = 420
+const ENEMY_ATTACK_DELAY = 900
+const ATTACK_RESULT_DURATION = 1100
 
 const CHARACTERS = [
   {
@@ -131,6 +133,20 @@ function StatsBlock({ entity, side }) {
             <span>Base damage</span>
             <strong>{entity.damageRange[0]}–{entity.damageRange[1]}</strong>
           </div>
+          {isHero && (
+            <>
+              <div className="stats-field stats-field--number stats-field--level">
+                <span>Level</span>
+                <strong>{entity.level}</strong>
+              </div>
+              <div className="stats-field stats-field--number stats-field--experience">
+                <span>Experience</span>
+                <strong>
+                  {entity.experience} / {entity.nextLevelExperience}
+                </strong>
+              </div>
+            </>
+          )}
         </>
       ) : (
         <div className="stats-empty-copy">
@@ -146,6 +162,7 @@ function App() {
   const [isPlaying, setIsPlaying] = useState(false)
   const [character, setCharacter] = useState(null)
   const [heroHealth, setHeroHealth] = useState(0)
+  const [heroExperience, setHeroExperience] = useState(0)
   const [gameOver, setGameOver] = useState(false)
   const [depth, setDepth] = useState(1)
   const [turn, setTurn] = useState(1)
@@ -165,11 +182,32 @@ function App() {
   const [attackTargetId, setAttackTargetId] = useState(null)
   const [monsterAttackId, setMonsterAttackId] = useState(null)
   const [isHeroHit, setIsHeroHit] = useState(false)
+  const [attackResult, setAttackResult] = useState(null)
   const [combatMessage, setCombatMessage] = useState(null)
   const [attacksRemaining, setAttacksRemaining] = useState(1)
   const [selectedMonsterId, setSelectedMonsterId] = useState(null)
   const enemyTurnLock = useRef(false)
   const attackLock = useRef(false)
+  const attackResultTimer = useRef(null)
+  const attackResultId = useRef(0)
+
+  const clearAttackResult = useCallback(() => {
+    window.clearTimeout(attackResultTimer.current)
+    attackResultTimer.current = null
+    setAttackResult(null)
+  }, [])
+
+  const showAttackResult = useCallback((hit, message) => {
+    window.clearTimeout(attackResultTimer.current)
+    attackResultId.current += 1
+    setAttackResult({ id: attackResultId.current, hit, message })
+    attackResultTimer.current = window.setTimeout(() => {
+      setAttackResult(null)
+      attackResultTimer.current = null
+    }, ATTACK_RESULT_DURATION)
+  }, [])
+
+  useEffect(() => () => window.clearTimeout(attackResultTimer.current), [])
 
   const enterDungeon = useCallback((nextDepth = 1, moveRange = 0) => {
     const nextDungeon = generateDungeon()
@@ -189,6 +227,7 @@ function App() {
     setAttackTargetId(null)
     setMonsterAttackId(null)
     setIsHeroHit(false)
+    clearAttackResult()
     setCombatMessage(null)
     setAttacksRemaining(1)
     setSelectedMonsterId(null)
@@ -198,11 +237,12 @@ function App() {
     setTurn(1)
     setDepth(nextDepth)
     setIsPlaying(true)
-  }, [])
+  }, [clearAttackResult])
 
   const chooseCharacter = (nextCharacter) => {
     setCharacter(nextCharacter)
     setHeroHealth(nextCharacter.health)
+    setHeroExperience(0)
     enterDungeon(1, nextCharacter.moveRange)
   }
 
@@ -219,6 +259,7 @@ function App() {
     ) return
 
     enemyTurnLock.current = true
+    clearAttackResult()
     setCombatMessage(null)
     setIsEnemyMoving(true)
     let nextMonsters = monsters
@@ -249,7 +290,6 @@ function App() {
     setIsEnemyMoving(false)
     setIsEnemyAttacking(true)
     let remainingHeroHealth = heroHealth
-    const attackMessages = []
 
     for (const monster of nextMonsters) {
       if (
@@ -269,14 +309,14 @@ function App() {
         remainingHeroHealth = Math.max(0, remainingHeroHealth - attack.damage)
         setHeroHealth(remainingHeroHealth)
         setIsHeroHit(true)
-        attackMessages.push(
-          `${monster.name} hits ${character.name} for ${attack.damage} damage.`,
-        )
+        const resultMessage = `${monster.name} hits ${character.name} for ${attack.damage} damage.`
+        showAttackResult(true, resultMessage)
       } else {
-        attackMessages.push(`${monster.name} misses ${character.name}.`)
+        const resultMessage = `${monster.name} misses ${character.name}.`
+        showAttackResult(false, resultMessage)
       }
 
-      setCombatMessage(attackMessages.join(' '))
+      setCombatMessage(null)
       await wait(ENEMY_ATTACK_DELAY)
       setIsHeroHit(false)
 
@@ -296,7 +336,7 @@ function App() {
       setSelectedTarget(null)
       setPlannedPath([])
       setCombatMessage(
-        `${attackMessages.join(' ')} ${character.name} has fallen.`,
+        `${character.name} has fallen.`,
       )
       enemyTurnLock.current = false
       return
@@ -323,6 +363,7 @@ function App() {
     enemyTurnLock.current = false
   }, [
     character,
+    clearAttackResult,
     dungeon.tiles,
     gameOver,
     heroHealth,
@@ -333,6 +374,7 @@ function App() {
     monsters,
     player,
     selectedTarget,
+    showAttackResult,
   ])
 
   useEffect(() => {
@@ -449,6 +491,7 @@ function App() {
     setSelectedTarget(null)
     setPlannedPath([])
     setCombatMessage(`${character.name} attacks ${monster.name}…`)
+    clearAttackResult()
     const attack = rollAttack(character)
 
     if (monster.position.x !== player.x) {
@@ -476,11 +519,32 @@ function App() {
             : currentMonster,
         ),
       )
-      setCombatMessage(
-        `${character.name} hits ${monster.name} for ${attack.damage} damage.${wasKilled ? ` ${monster.name} is slain.` : ''}`,
-      )
+      if (wasKilled) {
+        const nextExperience = heroExperience + monster.experienceReward
+        const currentLevel = getLevelForExperience(heroExperience)
+        const nextLevel = getLevelForExperience(nextExperience)
+
+        setHeroExperience(nextExperience)
+
+        if (nextLevel > currentLevel) {
+          setHeroHealth(character.health)
+        }
+
+        const levelUpMessage = nextLevel > currentLevel
+          ? ` Level ${nextLevel} reached! Health restored.`
+          : ''
+        const resultMessage = `${character.name} hits ${monster.name} for ${attack.damage} damage. ${monster.name} is slain. +${monster.experienceReward} EXP.${levelUpMessage}`
+        setCombatMessage(null)
+        showAttackResult(true, resultMessage)
+      } else {
+        const resultMessage = `${character.name} hits ${monster.name} for ${attack.damage} damage.`
+        setCombatMessage(null)
+        showAttackResult(true, resultMessage)
+      }
     } else {
-      setCombatMessage(`${character.name} misses ${monster.name}.`)
+      const resultMessage = `${character.name} misses ${monster.name}.`
+      setCombatMessage(null)
+      showAttackResult(false, resultMessage)
     }
 
     setIsAttacking(false)
@@ -489,12 +553,15 @@ function App() {
   }, [
     attacksRemaining,
     character,
+    clearAttackResult,
     gameOver,
     isAttacking,
     isEnemyAttacking,
     isEnemyMoving,
     isMoving,
+    heroExperience,
     player,
+    showAttackResult,
   ])
 
   const handleTileClick = (position, tile, monster) => {
@@ -588,11 +655,20 @@ function App() {
     () => monsters.filter(({ isDead }) => !isDead).length,
     [monsters],
   )
+  const heroLevel = getLevelForExperience(heroExperience)
   const heroStats = character
-    ? { ...character, currentHealth: heroHealth, isDead: gameOver }
+    ? {
+        ...character,
+        currentHealth: heroHealth,
+        experience: heroExperience,
+        level: heroLevel,
+        nextLevelExperience: experienceForLevel(heroLevel + 1),
+        isDead: gameOver,
+      }
     : null
 
   const returnToCharacterSelect = () => {
+    clearAttackResult()
     setIsPlaying(false)
     setCharacter(null)
     setCombatMessage(null)
@@ -746,6 +822,17 @@ function App() {
             }),
           )}
           </div>
+          {attackResult && (
+            <div
+              className={`combat-result combat-result--${attackResult.hit ? 'hit' : 'miss'}`}
+              key={attackResult.id}
+              role="status"
+              aria-live="assertive"
+            >
+              <strong>{attackResult.hit ? 'Hit!' : 'Miss!'}</strong>
+              <span>{attackResult.message}</span>
+            </div>
+          )}
           {gameOver && (
             <section className="game-over" role="alert" aria-labelledby="game-over-title">
               <p>The dungeon claims another explorer</p>

@@ -402,6 +402,15 @@ h1 {
   font-size: 1.15rem;
 }
 
+.stats-field--experience strong {
+  color: #74d7c2;
+  font-size: 0.9rem;
+}
+
+.stats-field--level strong {
+  color: #f2d778;
+}
+
 .stats-empty-copy {
   display: grid;
   min-height: 13rem;
@@ -616,12 +625,6 @@ h1 {
   background: radial-gradient(circle, rgb(144 35 39 / 18%), transparent 72%), #292a20;
 }
 
-.tile--monster-selected {
-  z-index: 3;
-  outline: 2px solid #f0c763;
-  outline-offset: -2px;
-}
-
 .tile--monster-dead {
   background: radial-gradient(circle, rgb(116 111 91 / 18%), transparent 72%), #25261e;
 }
@@ -754,6 +757,48 @@ h1 {
   background: rgb(16 12 10 / 94%);
   box-shadow: 0 1.5rem 4rem rgb(0 0 0 / 78%);
   text-align: center;
+}
+
+.combat-result {
+  position: absolute;
+  z-index: 9;
+  top: clamp(1rem, 4vw, 2rem);
+  left: 50%;
+  display: grid;
+  width: max-content;
+  max-width: min(28rem, calc(100% - 2rem));
+  padding: 0.7rem 1rem;
+  translate: -50% 0;
+  border: 1px solid #b89c58;
+  background: rgb(15 16 12 / 94%);
+  box-shadow: 0 0.8rem 2rem rgb(0 0 0 / 68%);
+  text-align: center;
+  pointer-events: none;
+  animation: combat-result 1100ms ease-out both;
+}
+
+.combat-result strong {
+  color: #f1d170;
+  font-family: Georgia, 'Times New Roman', serif;
+  font-size: clamp(1.35rem, 4vw, 2rem);
+  font-weight: 500;
+  line-height: 1;
+}
+
+.combat-result span {
+  margin-top: 0.3rem;
+  color: #e4d8ae;
+  font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+  font-size: clamp(0.58rem, 1.6vw, 0.74rem);
+  line-height: 1.45;
+}
+
+.combat-result--miss {
+  border-color: #6b6a5d;
+}
+
+.combat-result--miss strong {
+  color: #aaa797;
 }
 
 .game-over p {
@@ -902,6 +947,12 @@ kbd {
 @keyframes tombstone-appear {
   from { translate: 0 -20%; opacity: 0; }
   to { translate: 0 0; opacity: 1; }
+}
+
+@keyframes combat-result {
+  0% { translate: -50% -35%; opacity: 0; scale: 0.9; }
+  12%, 72% { translate: -50% 0; opacity: 1; scale: 1; }
+  100% { translate: -50% -15%; opacity: 0; scale: 0.98; }
 }
 
 @media (max-width: 1050px) {
