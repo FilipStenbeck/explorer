@@ -794,7 +794,7 @@ h1 {
   box-shadow: 0 0.8rem 2rem rgb(0 0 0 / 68%);
   text-align: center;
   pointer-events: none;
-  animation: combat-result 1100ms ease-out both;
+  animation: combat-result 2200ms ease-out both;
 }
 
 .combat-result strong {

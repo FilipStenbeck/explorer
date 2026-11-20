@@ -16,7 +16,7 @@ export const MONSTER_TYPES = [
   {
     id: 'skeleton',
     name: 'Skeleton',
-    speed: 6,
+    speed: 5,
     range: 1,
     health: 4,
     experienceReward: 2,
@@ -38,7 +38,7 @@ export const MONSTER_TYPES = [
   {
     id: 'orc',
     name: 'Orc',
-    speed: 7,
+    speed: 5,
     range: 1,
     health: 10,
     experienceReward: 4,
@@ -49,7 +49,7 @@ export const MONSTER_TYPES = [
   {
     id: 'cultist',
     name: 'Cultist',
-    speed: 8,
+    speed: 6,
     range: 1,
     health: 4,
     experienceReward: 2,

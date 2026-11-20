@@ -1,4 +1,5 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
+import { CHARACTERS } from './characters.js'
 import {
   getGridDistance,
   hasLineOfSight,
@@ -14,52 +15,7 @@ const STEP_DELAY = 150
 const MONSTER_STEP_DELAY = 110
 const ATTACK_FRAME_DELAY = 130
 const ENEMY_ATTACK_DELAY = 900
-const ATTACK_RESULT_DURATION = 1100
-
-const CHARACTERS = [
-  {
-    id: 'warrior',
-    name: 'Warrior',
-    title: 'The Iron Vanguard',
-    description: 'Shield raised, sword ready. Built to face the dark head-on.',
-    health: 10,
-    hitChance: 0.8,
-    damageRange: [3, 9],
-    moveRange: 7,
-    attackRange: 1,
-    sprite: '/sprites/warrior.png',
-    walkSprite: '/sprites/warrior-walk.png',
-    attackSprite: '/sprites/warrior-attack.png',
-  },
-  {
-    id: 'wizard',
-    name: 'Wizard',
-    title: 'The Arcane Seeker',
-    description: 'Ancient words and a bright staff illuminate forgotten paths.',
-    health: 4,
-    hitChance: 0.75,
-    damageRange: [1, 10],
-    moveRange: 5,
-    attackRange: 8,
-    sprite: '/sprites/wizard.png',
-    walkSprite: '/sprites/wizard-walk.png',
-    attackSprite: '/sprites/wizard-attack.png',
-  },
-  {
-    id: 'ranger',
-    name: 'Ranger',
-    title: 'The Silent Pathfinder',
-    description: 'Keen eyes and a steady bow find a way through any ruin.',
-    health: 6,
-    hitChance: 0.75,
-    damageRange: [4, 6],
-    moveRange: 10,
-    attackRange: 5,
-    sprite: '/sprites/ranger.png',
-    walkSprite: '/sprites/ranger-walk.png',
-    attackSprite: '/sprites/ranger-attack.png',
-  },
-]
+const ATTACK_RESULT_DURATION = 2200
 
 const wait = (milliseconds) =>
   new Promise((resolve) => window.setTimeout(resolve, milliseconds))
