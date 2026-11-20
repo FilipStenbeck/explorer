@@ -23,6 +23,13 @@ const wait = (milliseconds) =>
 const isSamePosition = (first, second) =>
   first?.x === second?.x && first?.y === second?.y
 
+const WALL_EDGE_DIRECTIONS = [
+  { side: 'top', x: 0, y: -1, seed: 0 },
+  { side: 'right', x: 1, y: 0, seed: 11 },
+  { side: 'bottom', x: 0, y: 1, seed: 23 },
+  { side: 'left', x: -1, y: 0, seed: 37 },
+]
+
 function HealthHearts({ health, name }) {
   return (
     <div className="health-hearts" aria-label={`${name} health: ${health}`}>
@@ -731,6 +738,18 @@ function App() {
               const isSelected = isSamePosition(selectedTarget, position)
               const pathStep = pathSteps.get(`${x},${y}`)
               const isWall = tile === TILE.WALL
+              const wallVariant = (x * 13 + y * 7) % 6
+              const wallEdges = isWall
+                ? WALL_EDGE_DIRECTIONS
+                    .filter(({ x: offsetX, y: offsetY }) => {
+                      const neighboringTile = dungeon.tiles[y + offsetY]?.[x + offsetX]
+                      return neighboringTile && neighboringTile !== TILE.WALL
+                    })
+                    .map((edge) => ({
+                      ...edge,
+                      variant: (x * 17 + y * 29 + edge.seed) % 6,
+                    }))
+                : []
               const monster = monstersByPosition.get(`${x},${y}`)
               const monsterDistance = monster
                 ? getGridDistance(player, monster.position)
@@ -749,7 +768,7 @@ function App() {
 
               return (
                 <button
-                  className={`tile tile--${tile}${hasPlayer ? ' tile--player' : ''}${monster ? ` tile--monster${monster.isDead ? ' tile--monster-dead' : ` tile--monster-${canAttackMonster ? 'in-range' : monsterInRange ? 'attack-spent' : 'out-of-range'}`}` : ''}${isSelectedMonster ? ' tile--monster-selected' : ''}${isAttackTarget ? ' tile--attack-target' : ''}${isMonsterAttacking ? ' tile--monster-attacking' : ''}${isHeroHit && hasPlayer ? ' tile--hero-hit' : ''}${isSelected ? ' tile--selected' : ''}`}
+                  className={`tile tile--${tile}${isWall ? ` tile--wall-variant-${wallVariant}${wallEdges.length ? ' tile--wall-boundary' : ''}` : ''}${hasPlayer ? ' tile--player' : ''}${monster ? ` tile--monster${monster.isDead ? ' tile--monster-dead' : ` tile--monster-${canAttackMonster ? 'in-range' : monsterInRange ? 'attack-spent' : 'out-of-range'}`}` : ''}${isSelectedMonster ? ' tile--monster-selected' : ''}${isAttackTarget ? ' tile--attack-target' : ''}${isMonsterAttacking ? ' tile--monster-attacking' : ''}${isHeroHit && hasPlayer ? ' tile--hero-hit' : ''}${isSelected ? ' tile--selected' : ''}`}
                   key={`${x}-${y}`}
                   type="button"
                   disabled={isWall || gameOver || isMoving || isEnemyMoving || isEnemyAttacking || isAttacking}
@@ -763,6 +782,13 @@ function App() {
                   }
                   aria-hidden={isWall ? 'true' : undefined}
                 >
+                  {wallEdges.map(({ side, variant }) => (
+                    <span
+                      className={`wall-edge wall-edge--${side} wall-edge--variant-${variant}`}
+                      key={side}
+                      aria-hidden="true"
+                    />
+                  ))}
                   {pathStep && !hasPlayer && (
                     <span
                       className={`path-arrow path-arrow--${pathStep.isReachable ? 'reachable' : 'beyond'}`}

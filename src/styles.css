@@ -489,15 +489,104 @@ h1 {
 }
 
 .tile--wall {
-  background: linear-gradient(135deg, rgb(255 255 255 / 3%), transparent 50%), #12140f;
-  box-shadow: inset 0 0 0 1px rgb(0 0 0 / 20%);
+  --rock-x: 24%;
+  --rock-y: 32%;
+  --shadow-x: 72%;
+  --shadow-y: 68%;
+  background:
+    radial-gradient(circle at var(--rock-x) var(--rock-y), rgb(157 150 105 / 9%) 0 7%, transparent 8%),
+    radial-gradient(circle at var(--shadow-x) var(--shadow-y), rgb(0 0 0 / 28%) 0 11%, transparent 12%),
+    linear-gradient(135deg, rgb(255 255 255 / 3%), transparent 54%),
+    #11130e;
+  background-size: 100% 100%;
+  box-shadow: none;
   cursor: default;
 }
 
+.tile--wall-variant-1 { --rock-x: 68%; --rock-y: 24%; --shadow-x: 30%; --shadow-y: 76%; }
+.tile--wall-variant-2 { --rock-x: 42%; --rock-y: 78%; --shadow-x: 82%; --shadow-y: 22%; }
+.tile--wall-variant-3 { --rock-x: 80%; --rock-y: 58%; --shadow-x: 18%; --shadow-y: 38%; }
+.tile--wall-variant-4 { --rock-x: 18%; --rock-y: 72%; --shadow-x: 64%; --shadow-y: 18%; }
+.tile--wall-variant-5 { --rock-x: 54%; --rock-y: 18%; --shadow-x: 26%; --shadow-y: 62%; }
+
+.tile--wall-boundary { z-index: 1; }
+
 .tile.tile--wall:hover,
 .tile.tile--wall:active {
-  background: linear-gradient(135deg, rgb(255 255 255 / 3%), transparent 50%), #12140f;
-  box-shadow: inset 0 0 0 1px rgb(0 0 0 / 20%);
+  background-color: #11130e;
+  box-shadow: none;
+}
+
+.wall-edge {
+  --edge-depth: 42%;
+  --edge-offset: 29%;
+  --edge-overhang: -21%;
+  position: absolute;
+  z-index: 1;
+  width: 100%;
+  height: var(--edge-depth);
+  background: linear-gradient(to bottom, #3b3c2c 0 10%, #292b20 42%, #151712 100%);
+  clip-path: polygon(0 0, 100% 0, 100% 58%, 84% 80%, 68% 53%, 51% 88%, 34% 60%, 17% 82%, 0 57%);
+  filter: drop-shadow(0 2px 2px rgb(0 0 0 / 72%));
+  pointer-events: none;
+}
+
+.wall-edge--variant-1 {
+  --edge-depth: 54%;
+  --edge-offset: 23%;
+  --edge-overhang: -27%;
+  clip-path: polygon(0 0, 100% 0, 100% 82%, 88% 44%, 74% 91%, 59% 51%, 43% 78%, 27% 38%, 12% 88%, 0 62%);
+}
+
+.wall-edge--variant-2 {
+  --edge-depth: 34%;
+  --edge-offset: 33%;
+  --edge-overhang: -17%;
+  clip-path: polygon(0 0, 100% 0, 100% 42%, 86% 96%, 69% 57%, 52% 73%, 35% 35%, 18% 86%, 0 54%);
+}
+
+.wall-edge--variant-3 {
+  --edge-depth: 62%;
+  --edge-offset: 19%;
+  --edge-overhang: -31%;
+  clip-path: polygon(0 0, 100% 0, 100% 68%, 91% 35%, 76% 72%, 62% 98%, 47% 48%, 31% 89%, 15% 42%, 0 76%);
+}
+
+.wall-edge--variant-4 {
+  --edge-depth: 46%;
+  --edge-offset: 27%;
+  --edge-overhang: -23%;
+  clip-path: polygon(0 0, 100% 0, 100% 94%, 84% 58%, 69% 76%, 53% 32%, 39% 91%, 22% 64%, 10% 38%, 0 82%);
+}
+
+.wall-edge--variant-5 {
+  --edge-depth: 28%;
+  --edge-offset: 36%;
+  --edge-overhang: -14%;
+  clip-path: polygon(0 0, 100% 0, 100% 52%, 90% 78%, 73% 31%, 57% 84%, 42% 56%, 25% 96%, 11% 46%, 0 67%);
+}
+
+.wall-edge--top {
+  top: var(--edge-overhang);
+  left: 0;
+  transform: scaleY(-1);
+}
+
+.wall-edge--bottom {
+  bottom: var(--edge-overhang);
+  left: 0;
+}
+
+.wall-edge--left {
+  top: var(--edge-offset);
+  left: -50%;
+  transform: rotate(90deg);
+}
+
+.wall-edge--right {
+  top: var(--edge-offset);
+  right: -50%;
+  transform: rotate(-90deg);
 }
 
 .tile--floor,
